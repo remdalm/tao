@@ -14,7 +14,10 @@ use std::{
 };
 
 use objc2::{rc::Retained, runtime::AnyObject, MainThreadMarker, Message};
-use objc2_ui_kit::{UIApplication, UIScene, UISceneConnectionOptions, UIWindowScene};
+use objc2_foundation::{NSSet, NSUserActivity};
+use objc2_ui_kit::{
+  UIApplication, UIOpenURLContext, UIScene, UISceneConnectionOptions, UIWindowScene,
+};
 
 use crate::{
   dpi::LogicalSize,
@@ -538,8 +541,19 @@ pub unsafe fn connect_scene(scene: &UIScene, options: &UISceneConnectionOptions)
   // that handle them while the app is running: custom schemes and file URLs in
   // the URL contexts, universal links in the user activities, since
   // scene:continueUserActivity: is not called for the launch activity
-  let mut url_strings = url_strings_from_url_contexts(&options.URLContexts());
-  url_strings.extend(url_strings_from_user_activities(&options.userActivities()));
+  // The generated accessors assume Apple's nonnull annotations and panic if
+  // UIKit returns nil. Treat nil as no launch payload instead.
+  let url_contexts: Option<Retained<NSSet<UIOpenURLContext>>> = msg_send![options, URLContexts];
+  let user_activities: Option<Retained<NSSet<NSUserActivity>>> =
+    msg_send![options, userActivities];
+
+  let mut url_strings = Vec::new();
+  if let Some(url_contexts) = url_contexts {
+    url_strings.extend(url_strings_from_url_contexts(&url_contexts));
+  }
+  if let Some(user_activities) = user_activities {
+    url_strings.extend(url_strings_from_user_activities(&user_activities));
+  }
   emit_opened(&url_strings, "scene:willConnectToSession:options:");
 }
 

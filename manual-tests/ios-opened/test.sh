@@ -43,10 +43,10 @@ data_container=$(xcrun simctl get_app_container booted "$bundle_id" data)
 log_file="$data_container/tmp/tao-opened-test.log"
 sed -n '1,80p' "$log_file"
 
-panic='unexpected NULL returned from -[UISceneConnectionOptions URLContexts]'
-if grep -Fq "$panic" "$log_file"; then
-  echo "REPRODUCED: $panic"
-else
-  echo "NOT REPRODUCED: $panic" >&2
+if grep -Fq 'PANIC' "$log_file"; then
+  echo "FAIL: ordinary cold launch panicked" >&2
   exit 1
 fi
+
+grep -Fq 'EVENT_LOOP_INIT' "$log_file"
+echo "PASS: ordinary cold launch did not panic"
